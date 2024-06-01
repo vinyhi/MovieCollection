@@ -16,7 +16,7 @@ import (
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatalf("Error loading .env file: %s", err)
 	}
 }
 
@@ -24,13 +24,15 @@ func connectDB() *mongo.Client {
 	mongoURI := os.Getenv("MONGO_URI")
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create new MongoDB client: %s", err)
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	err = client.Connect(ctx)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to connect to MongoDB: %s", err)
 	}
 
 	fmt.Println("Connected to MongoDB.")
@@ -39,6 +41,7 @@ func connectDB() *mongo.Client {
 
 func movieRoutes(router *gin.Engine, client *mongo.Client) {
 	moviesCollection := client.Database("movieDB").Collection("movies")
+
 	router.GET("/movies", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "List of movies"})
 	})
@@ -59,5 +62,7 @@ func main() {
 		port = "8080"
 	}
 
-	router.Run(":" + port)
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("Failed to run server: %s", err)
+	}
 }
