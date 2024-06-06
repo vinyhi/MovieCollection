@@ -7,11 +7,10 @@ import (
 	"os"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/joho/godotenv"
 )
 
 type Movie struct {
@@ -28,31 +27,53 @@ type Movie struct {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if err := loadEnvironment(); err != nil {
+		log.Fatal("Error loading .env file", err)
 	}
 
-	mongoURI := os.Getenv("MONGO_URI")
-	if mongoURI == "" {
-		log.Fatal("You must set your 'MONGO_URI' environmental variable.")
-	}
+	mongoURI := getMongoURI()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	client := connectMongoDB(ctx, mongoURI)
+	defer disconnectMongoDB(ctx, client)
+
+	collection := getMongoCollection(client, "moviesDB", "movies")
+	insertExampleMovie(ctx, collection)
+}
+
+func loadEnvironment() error {
+	return godotenv.Load()
+}
+
+func getMongoURI() string {
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		log.Fatal("You must set your 'MONGO_URI' environmental variable.")
+	}
+	return mongoURI
+}
+
+func connectMongoDB(ctx context.Context, mongoURI string) *mongo.Client {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to connect to MongoDB:", err)
 	}
-	defer func() {
-		if err = client.Disconnect(ctx); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	return client
+}
 
-	collection := client.Database("moviesDB").Collection("movies")
+func disconnectMongoDB(ctx context.Context, client *mongo.Client) {
+	if err := client.Disconnect(ctx); err != nil {
+		log.Fatal("Failed to disconnect MongoDB:", err)
+	}
+}
 
+func getMongoCollection(client *mongo.Client, dbName, collectionName string) *mongo.Collection {
+	return client.Database(dbName).Collection(collectionName)
+}
+
+func insertExampleMovie(ctx context.Context, collection *mongo.Collection) {
 	exampleMovie := Movie{
 		Title:       "Example Movie",
 		Director:    "John Doe",
@@ -67,7 +88,7 @@ func main() {
 
 	result, err := collection.InsertOne(ctx, exampleMovie)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to insert document:", err)
 	}
 
 	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
