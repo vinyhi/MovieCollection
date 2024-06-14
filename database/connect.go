@@ -5,10 +5,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+var (
+	collectionsCache = make(map[string]*mongo.Collection)
+	cacheLock        = sync.RWMutex{}
 )
 
 func ConnectToMongoDB() *mongo.Client {
@@ -38,7 +44,20 @@ func ConnectToMongoDB() *mongo.Client {
 }
 
 func GetCollection(client *mongo.Client, dbName, collName string) *mongo.Collection {
+	cacheKey := dbName + ":" + collName
+	cacheLock.RLock()
+	if collection, ok := collectionsCache[cacheKey]; ok {
+		cacheLock.RUnlock()
+		return collection
+	}
+	cacheLock.RUnlock()
+
 	collection := client.Database(dbName).Collection(collName)
+
+	cacheLock.Lock()
+	collectionsCache[cacheKey] = collection
+	cacheLock.Unlock()
+
 	return collection
 }
 
