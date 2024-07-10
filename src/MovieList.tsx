@@ -15,6 +15,11 @@ const MoviesList: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Enhanced: General purpose log message function
+  const logMessage = (message: string) => {
+    console.log(message);
+  };
+
   useEffect(() => {
     const fetchMovies = async () => {
       setIsLoading(true);
@@ -25,8 +30,10 @@ const MoviesList: React.FC = () => {
         }
         const data: IMovie[] = await response.json();
         setMovies(data);
+        logMessage("Movies fetched successfully."); // Example usage of logMessage
       } catch (err) {
         setError(err.message);
+        logMessage(`Error fetching movies: ${err.message}`); // Example usage of logMessage
       } finally {
         setIsLoading(false);
       }
@@ -41,13 +48,15 @@ const MoviesList: React.FC = () => {
         method: 'DELETE',
       });
       setMovies(movies.filter(movie => movie.id !== id));
+      logMessage(`Movie with id: ${id} deleted successfully.`); // Example usage of logMessage
     } catch (err) {
       console.error(err);
+      logMessage(`Error deleting movie: ${err.message}`); // Example usage of logMessage
     }
   };
 
   const handleUpdate = (id: string) => {
-    console.log(`Update movie with id: ${id}`);
+    logMessage(`Update movie with id: ${id}`); // Example usage of logMessage
   };
 
   return (
@@ -91,4 +100,4 @@ const MoviesList: React.FC = () => {
   );
 };
 
-export default Movies, List;
+export default MoviesList;
